@@ -1,5 +1,27 @@
 # Türkiye Kulüp Başkanlığı
 
+> Çalışan prototip hazırdır. Proje framework kullanmadan HTML, CSS ve Vanilla JavaScript ile geliştirilir.
+
+## Mevcut Prototip
+
+- Mobil öncelikli ve safe-area uyumlu arayüz
+- Kulüp seçimi ve cihazda otomatik kariyer kaydı
+- Ana, Kadro, Transfer, Lig ve Menü ekranları
+- Maç simülasyonu, oyuncu rating/form/value güncellemeleri
+- Pozisyon filtreleri ve oyuncu detay kartı
+- Transfer dönemi, teklif ve kulüp bütçesi akışı
+- Dinamik puan durumu
+
+Yerelde çalıştırmak için depo klasöründe basit bir statik sunucu açın:
+
+```bash
+python3 -m http.server 8000
+```
+
+Ardından `http://localhost:8000` adresini açın.
+
+---
+
 Türkiye liglerinde geçen, mobil öncelikli tasarlanmış futbol kulübü yönetim ve transfer simülasyonu.
 
 Oyuncular gerçek veya gerçeğe yakın kulüplerden birini seçer, kadrolarını yönetir, transfer dönemlerinde oyuncu alıp satar ve sezon boyunca maçları simüle eder.
