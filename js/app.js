@@ -1,7 +1,6 @@
-import { createInitialState } from "./data.js";
-import { getTeamStrength, simulateMatch, simulateOtherMatches } from "./engine.js";
-
-const STORAGE_KEY = "kulupBaskaniSave_v1";
+import { getTeamStrength, simulateMatch } from "./engine.js";
+import { rebuildSeason } from "./season.js";
+import { loadGameState, resetGameState, saveGameState } from "./storage.js";
 const POSITION_GROUPS = {
   GK: ["GK"],
   DEF: ["RB", "CB", "LB"],
@@ -9,10 +8,11 @@ const POSITION_GROUPS = {
   ATT: ["RW", "LW", "ST"],
 };
 
-let state = loadState();
+let state = loadGameState();
 let currentRoute = "home";
 let squadFilter = "ALL";
 let marketQuery = "";
+let leagueTab = "standings";
 let toastTimer;
 
 const picker = document.querySelector("#club-picker");
@@ -53,21 +53,6 @@ function bindGlobalEvents() {
   });
 }
 
-function loadState() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (saved?.version === 1 && Array.isArray(saved.players)) return saved;
-  } catch (error) {
-    console.warn("Kayıt okunamadı:", error);
-  }
-
-  return createInitialState();
-}
-
-function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
-
 function renderClubPicker(query = "") {
   const normalized = query.trim().toLocaleLowerCase("tr-TR");
   const matches = state.clubs.filter((club) => club.name.toLocaleLowerCase("tr-TR").includes(normalized));
@@ -84,7 +69,7 @@ function renderClubPicker(query = "") {
           ${clubBadge(club)}
           <span>
             <strong>${club.name}</strong>
-            <span>${club.league} · ${formatCurrency(club.budget)} bütçe</span>
+            <span>${getLeague(club.leagueId)?.name ?? "Lig belirtilmedi"} · ${formatCurrency(club.budget)} bütçe</span>
           </span>
           <span class="chevron" aria-hidden="true">›</span>
         </button>
@@ -98,7 +83,7 @@ function renderClubPicker(query = "") {
 
 function selectClub(clubId) {
   state.selectedClubId = clubId;
-  saveState();
+  saveGameState(state);
   openGame();
 }
 
@@ -144,7 +129,7 @@ function updateHud() {
     ${clubBadge(club)}
     <span>
       <strong>${club.name}</strong>
-      <span>${club.league} · ${getClubRank(club.id)}. sıra</span>
+      <span>${getLeague(club.leagueId)?.name ?? "Lig belirtilmedi"} · ${getClubRank(club.id)}. sıra</span>
     </span>
   `;
   budgetValue.textContent = formatCurrency(club.budget);
@@ -152,33 +137,24 @@ function updateHud() {
 
 function renderHome() {
   const club = getSelectedClub();
-  const opponent = getNextOpponent();
+  const league = getLeague(club.leagueId);
+  const fixture = getCurrentUserFixture();
+  const totalWeeks = getSeasonTotalWeeks();
+  const seasonFinished = totalWeeks > 0 && state.currentWeek > totalWeeks;
   const lastMatch = state.history.at(-1);
   const rank = getClubRank(club.id);
 
   view.innerHTML = `
     <div class="page-heading">
       <div>
-        <p class="section-kicker">${club.league.toLocaleUpperCase("tr-TR")}</p>
+        <p class="section-kicker">${(league?.name ?? "LİG").toLocaleUpperCase("tr-TR")}</p>
         <h1>${rank}. sıradasın</h1>
       </div>
-      <span class="week-pill">HAFTA ${state.currentWeek}</span>
+      <span class="week-pill">${seasonFinished ? "SEZON SONU" : `HAFTA ${state.currentWeek}`}</span>
     </div>
 
     <section class="card hero-card" style="--club-color:${club.color}">
-      <p class="section-kicker">${lastMatch ? "SIRADAKİ MAÇ" : "SEZON BAŞLIYOR"}</p>
-      <div class="fixture-row">
-        <div class="fixture-team">
-          ${clubBadge(club)}
-          <strong>${club.name}</strong>
-        </div>
-        <div class="versus">VS</div>
-        <div class="fixture-team">
-          ${clubBadge(opponent)}
-          <strong>${opponent.name}</strong>
-        </div>
-      </div>
-      <button id="simulate-match" class="primary-button" type="button">Maçı Simüle Et</button>
+      ${renderHomeFixture(fixture, seasonFinished, totalWeeks)}
     </section>
 
     <div class="dashboard-grid">
@@ -203,7 +179,44 @@ function renderHome() {
     </div>
   `;
 
-  document.querySelector("#simulate-match").addEventListener("click", playNextMatch);
+  document.querySelector("#simulate-week")?.addEventListener("click", playNextWeek);
+  document.querySelector("#new-season")?.addEventListener("click", startNewSeason);
+}
+
+function renderHomeFixture(fixture, seasonFinished, totalWeeks) {
+  if (seasonFinished) {
+    return `
+      <p class="section-kicker">SEZON TAMAMLANDI</p>
+      <div class="season-complete">
+        <strong>${getClubRank(state.selectedClubId)}. sıra</strong>
+        <span>${totalWeeks} haftalık sezon sona erdi.</span>
+      </div>
+      <button id="new-season" class="primary-button" type="button">Yeni Sezon Başlat</button>
+    `;
+  }
+
+  if (!fixture) {
+    return `
+      <p class="section-kicker">BU HAFTA</p>
+      <div class="season-complete">
+        <strong>${totalWeeks ? "Bay geçiyorsun" : "Fikstür bekleniyor"}</strong>
+        <span>${totalWeeks ? "Diğer lig maçları oynanacak." : "Lige en az iki takım eklemelisin."}</span>
+      </div>
+      ${totalWeeks ? '<button id="simulate-week" class="primary-button" type="button">Haftayı İlerle</button>' : ""}
+    `;
+  }
+
+  const home = getClub(fixture.homeClubId);
+  const away = getClub(fixture.awayClubId);
+  return `
+    <p class="section-kicker">SIRADAKİ MAÇ · HAFTA ${fixture.week}</p>
+    <div class="fixture-row">
+      <div class="fixture-team">${clubBadge(home)}<strong>${home.name}</strong></div>
+      <div class="versus">VS</div>
+      <div class="fixture-team">${clubBadge(away)}<strong>${away.name}</strong></div>
+    </div>
+    <button id="simulate-week" class="primary-button" type="button">Haftayı Oyna</button>
+  `;
 }
 
 function renderLastMatchCard(match) {
@@ -220,26 +233,56 @@ function renderLastMatchCard(match) {
   `;
 }
 
-function playNextMatch() {
+function playNextWeek() {
   const club = getSelectedClub();
-  const opponent = getNextOpponent();
-  const match = simulateMatch(state, club.id, opponent.id);
-  simulateOtherMatches(state, [club.id, opponent.id]);
-  state.history.push(match);
+  const weekFixtures = state.fixtures.filter(
+    (fixture) => fixture.week === state.currentWeek && fixture.status === "scheduled",
+  );
+  let userMatch = null;
 
-  const won = match.homeGoals > match.awayGoals;
-  const draw = match.homeGoals === match.awayGoals;
-  club.form = [...club.form.slice(-4), won ? "W" : draw ? "D" : "L"];
+  weekFixtures.forEach((fixture) => {
+    const result = simulateMatch(state, fixture.homeClubId, fixture.awayClubId);
+    fixture.status = "played";
+    fixture.homeGoals = result.homeGoals;
+    fixture.awayGoals = result.awayGoals;
+    const savedResult = { ...result, fixtureId: fixture.id, leagueId: fixture.leagueId };
+    state.history.push(savedResult);
+    if ([fixture.homeClubId, fixture.awayClubId].includes(club.id)) userMatch = savedResult;
+  });
+
+  if (userMatch) {
+    const isHome = userMatch.homeClubId === club.id;
+    const userGoals = isHome ? userMatch.homeGoals : userMatch.awayGoals;
+    const opponentGoals = isHome ? userMatch.awayGoals : userMatch.homeGoals;
+    const result = userGoals > opponentGoals ? "W" : userGoals === opponentGoals ? "D" : "L";
+    club.form = [...club.form.slice(-4), result];
+    const opponentId = isHome ? userMatch.awayClubId : userMatch.homeClubId;
+    const opponent = getClub(opponentId);
+    state.notifications = [
+      { title: `${club.shortName} ${userGoals} – ${opponentGoals} ${opponent.shortName}`, meta: result === "W" ? "Galibiyet" : result === "D" ? "Beraberlik" : "Mağlubiyet" },
+      { title: "Oyuncu değerleri güncellendi", meta: `${state.players.filter((player) => player.clubId === club.id).length} oyuncu` },
+    ];
+  } else {
+    state.notifications = [{ title: "Bay haftası tamamlandı", meta: `Hafta ${state.currentWeek}` }];
+  }
+
   state.currentWeek += 1;
-  state.transferWindow = state.currentWeek <= 4 || (state.currentWeek >= 17 && state.currentWeek <= 20);
-  state.notifications = [
-    { title: `${club.shortName} ${match.homeGoals} – ${match.awayGoals} ${opponent.shortName}`, meta: won ? "Galibiyet" : draw ? "Beraberlik" : "Mağlubiyet" },
-    { title: "Oyuncu değerleri güncellendi", meta: `${state.players.filter((player) => player.clubId === club.id).length} oyuncu` },
-  ];
-  saveState();
+  const winterStart = Math.floor(getSeasonTotalWeeks() / 2) + 1;
+  state.transferWindow = state.currentWeek <= 4 || (state.currentWeek >= winterStart && state.currentWeek <= winterStart + 2);
+  state.seasonStatus = state.currentWeek > getSeasonTotalWeeks() ? "completed" : "active";
+  saveGameState(state);
   updateHud();
   renderHome();
-  showToast(`Maç bitti: ${club.shortName} ${match.homeGoals} – ${match.awayGoals} ${opponent.shortName}`);
+  showToast(userMatch ? "Haftanın maçları tamamlandı." : "Bay haftası tamamlandı.");
+}
+
+function startNewSeason() {
+  rebuildSeason(state);
+  state.notifications = [{ title: "Yeni sezon fikstürü hazır", meta: "Çift devre" }];
+  saveGameState(state);
+  updateHud();
+  renderHome();
+  showToast("Yeni sezon fikstürü oluşturuldu.");
 }
 
 function renderSquad() {
@@ -308,45 +351,90 @@ function renderTransfer() {
 }
 
 function renderLeague() {
-  const rows = getSortedStandings();
+  const selectedClub = getSelectedClub();
+  const league = getLeague(selectedClub.leagueId);
+  const rows = getSortedStandings(selectedClub.leagueId);
   view.innerHTML = `
     <div class="page-heading">
-      <div><p class="section-kicker">2026/27</p><h1>Süper Lig</h1></div>
+      <div><p class="section-kicker">2026/27</p><h1>${league?.name ?? "Lig"}</h1></div>
       <span class="week-pill">HAFTA ${state.currentWeek}</span>
     </div>
+    <div class="filter-row league-tabs" aria-label="Lig görünümü">
+      <button class="filter-chip ${leagueTab === "standings" ? "is-active" : ""}" type="button" data-league-tab="standings">Puan Durumu</button>
+      <button class="filter-chip ${leagueTab === "fixtures" ? "is-active" : ""}" type="button" data-league-tab="fixtures">Sezon Fikstürü</button>
+    </div>
+    ${leagueTab === "standings" ? renderStandingsTable(rows) : renderSeasonSchedule(selectedClub.leagueId)}
+  `;
+
+  view.querySelectorAll("[data-league-tab]").forEach((button) => {
+    button.addEventListener("click", () => {
+      leagueTab = button.dataset.leagueTab;
+      renderLeague();
+    });
+  });
+}
+
+function renderStandingsTable(rows) {
+  if (!rows.length) return '<div class="empty-state">Bu ligde henüz takım yok.</div>';
+  return `
     <section class="card table-card">
       <table class="league-table">
         <thead><tr><th>#</th><th>TAKIM</th><th>O</th><th>AV</th><th>P</th></tr></thead>
-        <tbody>
-          ${rows.map((row, index) => {
-            const club = getClub(row.clubId);
-            return `
-              <tr class="${club.id === state.selectedClubId ? "is-user" : ""}">
-                <td>${index + 1}</td>
-                <td><div class="table-club">${clubBadge(club)}<span>${club.name}</span></div></td>
-                <td>${row.played}</td>
-                <td>${formatGoalDifference(row.goalsFor - row.goalsAgainst)}</td>
-                <td><strong>${row.points}</strong></td>
-              </tr>
-            `;
-          }).join("")}
-        </tbody>
+        <tbody>${rows.map((row, index) => {
+          const club = getClub(row.clubId);
+          return `
+            <tr class="${club.id === state.selectedClubId ? "is-user" : ""}">
+              <td>${index + 1}</td>
+              <td><div class="table-club">${clubBadge(club)}<span>${club.name}</span></div></td>
+              <td>${row.played}</td>
+              <td>${formatGoalDifference(row.goalsFor - row.goalsAgainst)}</td>
+              <td><strong>${row.points}</strong></td>
+            </tr>
+          `;
+        }).join("")}</tbody>
       </table>
     </section>
   `;
 }
 
+function renderSeasonSchedule(leagueId) {
+  const fixtures = state.fixtures.filter((fixture) => fixture.leagueId === leagueId);
+  if (!fixtures.length) {
+    return '<div class="empty-state">Fikstür oluşturmak için bu lige en az iki takım ekle.</div>';
+  }
+
+  const weeks = [...new Set(fixtures.map((fixture) => fixture.week))].sort((a, b) => a - b);
+  return `<div class="fixture-list">${weeks.map((week) => {
+    const matches = fixtures.filter((fixture) => fixture.week === week);
+    return `
+      <section class="card fixture-week ${week === state.currentWeek ? "is-current" : ""}">
+        <div class="fixture-week-head"><strong>${week}. Hafta</strong>${week === state.currentWeek ? "<span>SIRADAKİ</span>" : ""}</div>
+        ${matches.map((fixture) => {
+          const home = getClub(fixture.homeClubId);
+          const away = getClub(fixture.awayClubId);
+          const score = fixture.status === "played" ? `${fixture.homeGoals} – ${fixture.awayGoals}` : "VS";
+          return `
+            <div class="fixture-line ${[home.id, away.id].includes(state.selectedClubId) ? "is-user" : ""}">
+              <span>${home.name}</span><strong>${score}</strong><span>${away.name}</span>
+            </div>
+          `;
+        }).join("")}
+      </section>
+    `;
+  }).join("")}</div>`;
+}
+
 function renderMenu() {
   const club = getSelectedClub();
   const squad = state.players.filter((player) => player.clubId === club.id);
-  const average = Math.round(squad.reduce((sum, player) => sum + player.overall, 0) / squad.length);
+  const average = squad.length ? Math.round(squad.reduce((sum, player) => sum + player.overall, 0) / squad.length) : 0;
 
   view.innerHTML = `
     <div class="page-heading"><div><p class="section-kicker">KARİYER</p><h1>Menü</h1></div></div>
     <div class="menu-list">
       <section class="card menu-card">
         <h3>${club.name}</h3>
-        <p>${club.league} · 2026/27 sezonu · Hafta ${state.currentWeek}</p>
+        <p>${getLeague(club.leagueId)?.name ?? "Lig belirtilmedi"} · 2026/27 sezonu · Hafta ${state.currentWeek}</p>
         <div class="summary-stats">
           <div class="summary-stat"><strong>${getClubRank(club.id)}</strong><span>SIRA</span></div>
           <div class="summary-stat"><strong>${average}</strong><span>ORT. OVR</span></div>
@@ -361,6 +449,10 @@ function renderMenu() {
         <h3>Demo sürümü</h3>
         <p>Gerçek lig verileri yerine oyun motorunu test etmek için kurgusal kulüp ve oyuncular kullanılıyor.</p>
       </section>
+      <a class="admin-link" href="admin.html">
+        <span><strong>Veri Yönetimi</strong><small>Lig, takım ve oyuncu ekle</small></span>
+        <span aria-hidden="true">›</span>
+      </a>
       <button id="reset-career" class="danger-button" type="button">Kariyeri Sıfırla</button>
     </div>
   `;
@@ -370,8 +462,7 @@ function renderMenu() {
 
 function resetCareer() {
   if (!window.confirm("Mevcut kariyer silinecek. Emin misin?")) return;
-  localStorage.removeItem(STORAGE_KEY);
-  state = createInitialState();
+  state = resetGameState();
   currentRoute = "home";
   squadFilter = "ALL";
   marketQuery = "";
@@ -459,7 +550,7 @@ function makeOffer(player) {
   player.clubId = buyingClub.id;
   state.notifications.unshift({ title: `${player.name} kadroya katıldı`, meta: formatCurrency(offer) });
   state.notifications = state.notifications.slice(0, 3);
-  saveState();
+  saveGameState(state);
   updateHud();
   playerDialog.close();
   renderTransfer();
@@ -474,13 +565,27 @@ function getClub(clubId) {
   return state.clubs.find((club) => club.id === clubId);
 }
 
-function getNextOpponent() {
-  const available = state.clubs.filter((club) => club.id !== state.selectedClubId);
-  return available[(state.currentWeek - 1) % available.length];
+function getLeague(leagueId) {
+  return state.leagues.find((league) => league.id === leagueId);
 }
 
-function getSortedStandings() {
-  return [...state.standings].sort((a, b) => {
+function getCurrentUserFixture() {
+  return state.fixtures.find(
+    (fixture) => fixture.week === state.currentWeek
+      && fixture.leagueId === getSelectedClub().leagueId
+      && [fixture.homeClubId, fixture.awayClubId].includes(state.selectedClubId),
+  );
+}
+
+function getSeasonTotalWeeks() {
+  const leagueId = getSelectedClub().leagueId;
+  const weeks = state.fixtures.filter((fixture) => fixture.leagueId === leagueId).map((fixture) => fixture.week);
+  return weeks.length ? Math.max(...weeks) : 0;
+}
+
+function getSortedStandings(leagueId) {
+  const clubIds = new Set(state.clubs.filter((club) => club.leagueId === leagueId).map((club) => club.id));
+  return state.standings.filter((row) => clubIds.has(row.clubId)).sort((a, b) => {
     const pointDifference = b.points - a.points;
     const goalDifference = (b.goalsFor - b.goalsAgainst) - (a.goalsFor - a.goalsAgainst);
     return pointDifference || goalDifference || b.goalsFor - a.goalsFor || a.seedOrder - b.seedOrder;
@@ -488,7 +593,8 @@ function getSortedStandings() {
 }
 
 function getClubRank(clubId) {
-  return getSortedStandings().findIndex((row) => row.clubId === clubId) + 1;
+  const club = getClub(clubId);
+  return getSortedStandings(club.leagueId).findIndex((row) => row.clubId === clubId) + 1;
 }
 
 function clubBadge(club) {

@@ -235,6 +235,21 @@ h3 {
   text-align: center;
 }
 
+.picker-admin-link {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 750;
+  text-decoration: none;
+}
+
 .game {
   min-height: 100dvh;
   padding-bottom: calc(82px + env(safe-area-inset-bottom));
@@ -451,6 +466,33 @@ h3 {
   color: #0b1220;
 }
 
+.season-complete {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-height: 142px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.season-complete strong,
+.season-complete span {
+  display: block;
+}
+
+.season-complete strong {
+  margin-bottom: 7px;
+  font-size: 24px;
+  letter-spacing: -0.04em;
+}
+
+.season-complete span {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
 .secondary-button {
   border: 1px solid var(--line);
   background: var(--surface);
@@ -549,6 +591,10 @@ h3 {
 
 .filter-row::-webkit-scrollbar {
   display: none;
+}
+
+.league-tabs {
+  margin-bottom: 14px;
 }
 
 .filter-chip {
@@ -735,6 +781,73 @@ h3 {
   font-size: 7px;
 }
 
+.fixture-list {
+  display: grid;
+  gap: 10px;
+}
+
+.fixture-week {
+  overflow: hidden;
+}
+
+.fixture-week.is-current {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 9%, transparent);
+}
+
+.fixture-week-head {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+  font-size: 12px;
+}
+
+.fixture-week-head span {
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+}
+
+.fixture-line {
+  display: grid;
+  min-height: 48px;
+  grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--line);
+  font-size: 11px;
+}
+
+.fixture-line:last-child {
+  border-bottom: 0;
+}
+
+.fixture-line.is-user {
+  background: var(--accent-soft);
+  font-weight: 750;
+}
+
+.fixture-line span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fixture-line span:last-child {
+  text-align: right;
+}
+
+.fixture-line strong {
+  font-size: 12px;
+  text-align: center;
+}
+
 .menu-list {
   display: grid;
   gap: 10px;
@@ -749,6 +862,36 @@ h3 {
   color: var(--muted);
   font-size: 13px;
   line-height: 1.5;
+}
+
+.admin-link {
+  display: flex;
+  min-height: 70px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 17px;
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--line));
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.admin-link strong,
+.admin-link small {
+  display: block;
+}
+
+.admin-link small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.admin-link > span:last-child {
+  color: var(--accent);
+  font-size: 28px;
 }
 
 .summary-stats {

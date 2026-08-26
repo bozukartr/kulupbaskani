@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b1220" />
+    <meta name="description" content="Kulüp Başkanı lig, takım ve oyuncu veri yönetimi." />
+    <title>Veri Yönetimi · Kulüp Başkanı</title>
+    <link rel="stylesheet" href="css/styles.css" />
+    <link rel="stylesheet" href="css/admin.css" />
+  </head>
+  <body class="admin-page">
+    <header class="admin-topbar">
+      <a class="back-link" href="index.html" aria-label="Oyuna dön">‹</a>
+      <div>
+        <strong>Veri Yönetimi</strong>
+        <span>Lig · Takım · Oyuncu</span>
+      </div>
+      <span class="admin-badge">ADMİN</span>
+    </header>
+
+    <main class="admin-container">
+      <section class="admin-intro">
+        <p class="eyebrow">MANUEL VERİ GİRİŞİ</p>
+        <h1>Futbol dünyanı oluştur</h1>
+        <p>Önce ligi, sonra takımı, son olarak oyuncuları ekle. Ek dosya veya tablo gerekmez.</p>
+      </section>
+
+      <section class="admin-stats" aria-label="Veri özeti">
+        <div><strong id="league-count">0</strong><span>LİG</span></div>
+        <div><strong id="club-count">0</strong><span>TAKIM</span></div>
+        <div><strong id="player-count">0</strong><span>OYUNCU</span></div>
+      </section>
+
+      <div class="admin-note">
+        Takım ekleme veya silme işlemi sezonu sıfırlar ve yeni, rastgele çift devreli fikstür oluşturur.
+      </div>
+
+      <div class="admin-workspace">
+        <section class="admin-panel">
+          <header class="panel-head">
+            <span class="step-number">1</span>
+            <div><h2>Ligler</h2><p>Bir lig ekle veya seç</p></div>
+          </header>
+          <form id="league-form" class="admin-form">
+            <label>
+              <span>Lig adı</span>
+              <input id="league-name" name="leagueName" maxlength="50" placeholder="Örn. Süper Lig" required />
+            </label>
+            <button class="admin-add-button" type="submit">Lig Ekle</button>
+          </form>
+          <div id="league-list" class="entity-list"></div>
+        </section>
+
+        <section id="club-panel" class="admin-panel">
+          <header class="panel-head">
+            <span class="step-number">2</span>
+            <div><h2>Takımlar</h2><p id="club-panel-subtitle">Önce bir lig seç</p></div>
+          </header>
+          <div id="club-panel-content"></div>
+        </section>
+
+        <section id="player-panel" class="admin-panel">
+          <header class="panel-head">
+            <span class="step-number">3</span>
+            <div><h2>Oyuncular</h2><p id="player-panel-subtitle">Önce bir takım seç</p></div>
+          </header>
+          <div id="player-panel-content"></div>
+        </section>
+      </div>
+    </main>
+
+    <div id="admin-toast" class="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="js/admin.js"></script>
+  </body>
+</html>
