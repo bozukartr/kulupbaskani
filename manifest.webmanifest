@@ -1,0 +1,10 @@
+{
+  "name": "Kulüp Başkanı",
+  "short_name": "Kulüp Başkanı",
+  "description": "Mobil öncelikli futbol kulübü yönetim ve transfer oyunu.",
+  "lang": "tr",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#eef1f5",
+  "theme_color": "#0b1220"
+}
