@@ -11,6 +11,13 @@
 - Pozisyon filtreleri ve oyuncu detay kartı
 - Transfer dönemi, teklif ve kulüp bütçesi akışı
 - Dinamik puan durumu
+- Sezon başında oluşturulan rastgele çift devreli fikstür
+- Lig → takım → oyuncu hiyerarşili manuel admin paneli
+- Ayrı lig, takım ve oyuncu veri dosyaları
+
+## Admin Paneli
+
+`admin.html` sayfasından önce ligleri, seçilen ligin altında takımları ve seçilen takımın altında oyuncuları tek tek ekleyebilirsiniz. Takım ekleme veya silme işlemi fikstürü otomatik olarak yeniden oluşturur.
 
 Yerelde çalıştırmak için depo klasöründe basit bir statik sunucu açın:
 
